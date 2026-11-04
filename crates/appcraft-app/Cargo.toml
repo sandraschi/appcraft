@@ -1,0 +1,21 @@
+[package]
+name = "appcraft-app"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+
+[[bin]]
+name = "appcraft"
+path = "src/main.rs"
+
+[dependencies]
+appcraft-core = { path = "../appcraft-core" }
+appcraft-templates = { path = "../appcraft-templates" }
+databasecraft-store.workspace = true
+databasecraft-core.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tokio.workspace = true
+eframe.workspace = true
+egui.workspace = true

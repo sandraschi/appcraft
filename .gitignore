@@ -1,0 +1,6 @@
+/target
+**/*.dbcraft
+**/*.appcraft
+**/*.bak
+**/*.sqlite
+*.exe
