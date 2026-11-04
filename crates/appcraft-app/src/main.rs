@@ -35,6 +35,7 @@ pub struct AppCraftGui {
     pub stigmergy_summary: Option<Value>,
     pub compilation_result: Option<Value>,
     pub status_message: String,
+    pub locale: appcraft_core::i18n::AppLocale,
     pub is_dark_theme: bool,
     pub is_authenticated: bool,
     pub auth_username: String,
@@ -57,6 +58,7 @@ impl AppCraftGui {
             stigmergy_summary: None,
             compilation_result: None,
             status_message: format!("AppCraft v{APP_VERSION} Studio [Ready on Port {CONTROL_PORT}]"),
+            locale: appcraft_core::i18n::AppLocale::default(),
             is_dark_theme: true,
             is_authenticated: false,
             auth_username: "craftmaster".to_string(),
@@ -121,43 +123,44 @@ impl eframe::App for AppCraftGui {
         // 0. Desktop Menu Bar
         egui::Panel::top("desktop_menu_bar").show(ui, |ui| {
             ui.horizontal(|ui| {
-                ui.menu_button("File", |ui| {
-                    if ui.button("Scaffold New Project...").clicked() {
+                let loc = self.locale;
+                ui.menu_button(appcraft_core::i18n::t(appcraft_core::i18n::I18nKey::File, loc), |ui| {
+                    if ui.button(appcraft_core::i18n::t(appcraft_core::i18n::I18nKey::ScaffoldNewProject, loc)).clicked() {
                         self.active_tab = ActiveTab::Studio;
                         ui.close();
                     }
-                    if ui.button("Compile Standalone .exe").clicked() {
+                    if ui.button(appcraft_core::i18n::t(appcraft_core::i18n::I18nKey::CompileStandaloneExe, loc)).clicked() {
                         self.active_tab = ActiveTab::Compiler;
                         self.compile_application();
                         ui.close();
                     }
                     ui.separator();
-                    if ui.button("Exit").clicked() {
+                    if ui.button(appcraft_core::i18n::t(appcraft_core::i18n::I18nKey::Exit, loc)).clicked() {
                         ui.ctx().send_viewport_cmd(egui::ViewportCommand::Close);
                     }
                 });
 
-                ui.menu_button("Workspaces", |ui| {
-                    if ui.button("Studio Config").clicked() {
+                ui.menu_button(appcraft_core::i18n::t(appcraft_core::i18n::I18nKey::Workspaces, loc), |ui| {
+                    if ui.button(appcraft_core::i18n::t(appcraft_core::i18n::I18nKey::StudioConfig, loc)).clicked() {
                         self.active_tab = ActiveTab::Studio;
                         ui.close();
                     }
-                    if ui.button("Domain Blueprints").clicked() {
+                    if ui.button(appcraft_core::i18n::t(appcraft_core::i18n::I18nKey::DomainBlueprints, loc)).clicked() {
                         self.active_tab = ActiveTab::Blueprints;
                         ui.close();
                     }
-                    if ui.button("Stigmergic Ledger").clicked() {
+                    if ui.button(appcraft_core::i18n::t(appcraft_core::i18n::I18nKey::StigmergicLedger, loc)).clicked() {
                         self.active_tab = ActiveTab::StigmergyLedger;
                         self.refresh_stigmergy();
                         ui.close();
                     }
-                    if ui.button("Binary Compiler").clicked() {
+                    if ui.button(appcraft_core::i18n::t(appcraft_core::i18n::I18nKey::BinaryCompiler, loc)).clicked() {
                         self.active_tab = ActiveTab::Compiler;
                         ui.close();
                     }
                 });
 
-                ui.menu_button("View", |ui| {
+                ui.menu_button(appcraft_core::i18n::t(appcraft_core::i18n::I18nKey::View, loc), |ui| {
                     let theme_label = if self.is_dark_theme { "☀ Switch to Light Theme" } else { "🌙 Switch to Dark Theme" };
                     if ui.button(theme_label).clicked() {
                         self.is_dark_theme = !self.is_dark_theme;
@@ -165,10 +168,10 @@ impl eframe::App for AppCraftGui {
                     }
                 });
 
-                ui.menu_button("Security", |ui| {
+                ui.menu_button(appcraft_core::i18n::t(appcraft_core::i18n::I18nKey::Security, loc), |ui| {
                     if self.is_authenticated {
-                        ui.label(format!("Signed in: {}", self.auth_username));
-                        if ui.button("Sign Out").clicked() {
+                        ui.label(format!("{}: {}", appcraft_core::i18n::t(appcraft_core::i18n::I18nKey::SignedIn, loc), self.auth_username));
+                        if ui.button(appcraft_core::i18n::t(appcraft_core::i18n::I18nKey::SignedOut, loc)).clicked() {
                             self.is_authenticated = false;
                             self.status_message = "Signed out".to_string();
                             ui.close();
@@ -181,14 +184,25 @@ impl eframe::App for AppCraftGui {
                     }
                 });
 
-                ui.menu_button("Help", |ui| {
-                    if ui.button("About AppCraft").clicked() {
+                ui.menu_button(appcraft_core::i18n::t(appcraft_core::i18n::I18nKey::Help, loc), |ui| {
+                    if ui.button(appcraft_core::i18n::t(appcraft_core::i18n::I18nKey::AboutAppCraft, loc)).clicked() {
                         self.show_about_dialog = true;
                         ui.close();
                     }
                 });
 
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                    let cur_loc = self.locale;
+                    let loc_label = format!("{} {}", cur_loc.flag(), cur_loc.code().to_uppercase());
+                    egui::ComboBox::from_id_salt("topbar_locale_selector")
+                        .selected_text(loc_label)
+                        .show_ui(ui, |ui| {
+                            for loc_item in appcraft_core::i18n::AppLocale::all() {
+                                let text = format!("{} {}", loc_item.flag(), loc_item.display_name());
+                                let _ = ui.selectable_value(&mut self.locale, *loc_item, text);
+                            }
+                        });
+
                     let (icon, label) = if self.is_dark_theme { ("☀", "Light") } else { ("🌙", "Dark") };
                     if ui.small_button(format!("{icon} {label}")).clicked() {
                         self.is_dark_theme = !self.is_dark_theme;

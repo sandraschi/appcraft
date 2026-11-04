@@ -9,6 +9,7 @@
 #![deny(clippy::todo)]
 
 pub mod error;
+pub mod i18n;
 pub mod stigmergy;
 
 use crate::stigmergy::StigmergyEngine;
