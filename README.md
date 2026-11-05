@@ -1,6 +1,6 @@
 # AppCraft
 
-**AppCraft** is the autonomous stigmergic application factory for the sandraschi fleet. It synthesizes sovereign, zero-runtime-tax native desktop and web applications from structured domain blueprints (powered by **DatabaseCraft**).
+**AppCraft** is the autonomous stigmergic application factory for the sandraschi fleet. It synthesizes local-first, zero-runtime-tax native desktop and web applications from structured domain blueprints (powered by **DatabaseCraft**).
 
 ## Key Architecture
 - **Stigmergic Coordination**: Decentralized environment-mediated task routing (`_stigmergy_ledger`).

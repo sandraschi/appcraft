@@ -50,7 +50,7 @@ impl AppCraftGui {
             store,
             runtime,
             active_tab: ActiveTab::Studio,
-            app_name: "MySovereignApp".to_string(),
+            app_name: "MyLocalApp".to_string(),
             selected_template: "desktop_egui".to_string(),
             selected_blueprint: "surgery".to_string(),
             seed_sample_data: true,

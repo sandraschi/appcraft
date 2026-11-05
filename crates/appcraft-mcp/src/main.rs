@@ -16,7 +16,7 @@ use tokio::runtime::Runtime;
 
 #[derive(Parser)]
 #[command(name = "appcraft-cli")]
-#[command(about = "AppCraft: Stigmergic Sovereign Application Factory & CLI", version = APP_VERSION)]
+#[command(about = "AppCraft: Stigmergic Local Application Factory & CLI", version = APP_VERSION)]
 struct Cli {
     #[command(subcommand)]
     command: Option<Commands>,
@@ -55,7 +55,7 @@ enum Commands {
         #[arg(long)]
         agent_id: Option<String>,
     },
-    /// Compile application into sovereign standalone executable
+    /// Compile application into local standalone executable
     Compile {
         name: String,
         #[arg(long, default_value = "windows-x86_64")]
@@ -193,7 +193,7 @@ fn run_mcp_stdio(rt: &Runtime, store: &DatabaseStore) {
                         { "name": "app_list_blueprints", "description": "List turnkey domain database blueprints", "inputSchema": { "type": "object", "properties": {} } },
                         {
                             "name": "app_init",
-                            "description": "Initialize a new sovereign application workspace with blueprints and stigmergic tasks",
+                            "description": "Initialize a new local application workspace with blueprints and stigmergic tasks",
                             "inputSchema": {
                                 "type": "object",
                                 "properties": {
