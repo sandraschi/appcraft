@@ -279,7 +279,7 @@ eframe = "0.37"
 egui = "0.37"
 rusqlite = { version = "0.40", features = ["bundled"] }
 serde_json = "1"
-axum = "0.7"
+axum = { version = "0.7", features = ["multipart"] }
 tokio = { version = "1", features = ["full"] }
 "#;
 
@@ -298,7 +298,8 @@ Without `--db` it opens `./__DB_FILE__` in the working directory.
 
 `cargo run --bin __PACKAGE__-portal -- --port 11540`
 then open http://127.0.0.1:11540 — home, new-patient onboarding,
-appointments, treatment plans (record number), staff inbox.
+appointments, treatment plans (record number), staff inbox, photos.
+Reception uploads room/shop/floorplan photos at /staff/media.
 Binds loopback only; no login in v1 — demo, not for real patient
 data over networks (see docs/LEGAL-SPIKE.md, network chapter).
 
@@ -316,9 +317,9 @@ const PORTAL_RS_TEMPLATE: &str = r##"//! __APP_TITLE__ — patient portal (gener
 //! See docs/LEGAL-SPIKE.md (network chapter) before any real deployment.
 
 use axum::{
-    extract::{Form, Query, State},
-    http::StatusCode,
-    response::Html,
+    extract::{Form, Multipart, Path, Query, State},
+    http::{header, StatusCode},
+    response::{Html, IntoResponse},
     routing::{get, post},
     Router,
 };
@@ -354,7 +355,7 @@ fn shell(title: &str, body: String) -> Html<String> {
         <div class=\"banner\"><strong>Demo portal — LAN only, no login.</strong> \
         Not for real patient data over networks. See docs/LEGAL-SPIKE.md.</div>\
         <nav><a href=\"/\">Home</a><a href=\"/onboarding\">New patient</a>\
-        <a href=\"/appointments\">Appointments</a><a href=\"/requests\">Staff inbox</a></nav>\
+        <a href=\"/appointments\">Appointments</a><a href=\"/photos\">Photos &amp; plans</a><a href=\"/requests\">Staff inbox</a><a href=\"/staff/media\">Upload</a></nav>\
         <h1>{}</h1>{}</body></html>",
         esc(APP_TITLE),
         esc(title),
@@ -414,11 +415,22 @@ fn ensure_requests_table(db: &str) {
             "CREATE TABLE IF NOT EXISTS portal_requests (id INTEGER PRIMARY KEY, req_type TEXT NOT NULL, payload TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'new', created_at DATETIME DEFAULT CURRENT_TIMESTAMP)",
             [],
         );
+        let _ = conn.execute(
+            "CREATE TABLE IF NOT EXISTS site_media (id INTEGER PRIMARY KEY, slot TEXT NOT NULL DEFAULT 'gallery', file_name TEXT NOT NULL UNIQUE, mime TEXT NOT NULL DEFAULT '', caption TEXT NOT NULL DEFAULT '', created_at DATETIME DEFAULT CURRENT_TIMESTAMP)",
+            [],
+        );
     }
 }
 
 async fn home(State(state): State<Arc<AppState>>) -> Html<String> {
-    let body = format!(
+    let mut hero = String::new();
+    if let Ok((_, rows)) = db_rows(&state.db_path, "SELECT file_name, caption FROM site_media WHERE mime != 'pdf' ORDER BY id LIMIT 1") {
+        if let Some(r) = rows.first() {
+            hero = format!("<p><img src=\"/media/{}\" alt=\"{}\" style=\"max-width:100%\"></p>", esc(&r[0]), esc(&r[1]));
+        }
+    }
+    let mut body = hero;
+    body.push_str(&format!(
         "<p>Welcome to {} — appointments, onboarding, and treatment plans. \
         This demo portal reads the local practice file <code>{}</code> and takes structured requests for reception.</p>\
         <ul><li><a href=\"/onboarding\">New patient onboarding</a></li>\
@@ -427,7 +439,7 @@ async fn home(State(state): State<Arc<AppState>>) -> Html<String> {
         <li><a href=\"/requests\">Staff inbox (reception)</a></li></ul>",
         esc(APP_TITLE),
         esc(&state.db_path)
-    );
+    ));
     shell("Home", body)
 }
 
@@ -603,6 +615,148 @@ async fn requests(State(state): State<Arc<AppState>>) -> Html<String> {
     shell("Staff inbox", body)
 }
 
+async fn photos(State(state): State<Arc<AppState>>) -> Html<String> {
+    let mut body = String::from("<h2>Floor plans</h2>");
+    match db_rows(&state.db_path, "SELECT file_name, caption, mime FROM site_media WHERE slot = 'floorplan' ORDER BY id DESC LIMIT 1") {
+        Ok((_, rows)) => {
+            if let Some(r) = rows.first() {
+                if r[2] == "pdf" {
+                    body.push_str(&format!("<p><a href=\"/media/{}\">Open floor plan (PDF) — {}</a></p>", esc(&r[0]), esc(&r[1])));
+                } else {
+                    body.push_str(&format!("<p><img src=\"/media/{}\" alt=\"{}\", style=\"max-width:100%\"></p><p>{}</p>", esc(&r[0]), esc(&r[1]), esc(&r[1])));
+                }
+            } else {
+                body.push_str("<p>No floor plan uploaded yet.</p>");
+            }
+        }
+        Err(e) => body.push_str(&format!("<p>{}</p>", esc(&e))),
+    }
+    body.push_str("<h2>Rooms, shop, farm</h2>");
+    match db_rows(&state.db_path, "SELECT slot, file_name, mime, caption FROM site_media ORDER BY id") {
+        Ok((_, rows)) if !rows.is_empty() => {
+            for r in &rows {
+                body.push_str(&format!("<figure><figcaption><strong>{}</strong> — {}</figcaption>", esc(&r[0]), esc(&r[3])));
+                if r[2] == "pdf" {
+                    body.push_str(&format!("<p><a href=\"/media/{}\">Open document (PDF)</a></p>", esc(&r[1])));
+                } else {
+                    body.push_str(&format!("<img src=\"/media/{}\" alt=\"{}\" style=\"max-width:100%\">", esc(&r[1]), esc(&r[3])));
+                }
+                body.push_str("</figure>");
+            }
+        }
+        Ok(_) => body.push_str("<p>No photos yet — reception adds them under Staff → Upload.</p>"),
+        Err(e) => body.push_str(&format!("<p>{}</p>", esc(&e))),
+    }
+    shell("Photos & plans", body)
+}
+
+async fn media_upload_form() -> Html<String> {
+    shell(
+        "Upload photo or floor plan",
+        "<form method=\"post\" action=\"/staff/media\" enctype=\"multipart/form-data\">\
+        <label>Slot (reception, waiting-room, treatment, floorplan, shop-front, hives, bakery, gallery)<input name=\"slot\" value=\"gallery\"></label>\
+        <label>Caption<input name=\"caption\"></label>\
+        <label>File (jpg/png/webp/gif/pdf, max 10 MB)<input type=\"file\" name=\"photo\" required></label>\
+        <button type=\"submit\">Upload</button></form>\
+        <p>Files land in the practice <code>media/</code> folder and appear on the Photos page. No recognizable people without their consent.</p>"
+            .to_string(),
+    )
+}
+
+async fn media_upload(
+    State(state): State<Arc<AppState>>,
+    mut multipart: Multipart,
+) -> Result<Html<String>, (StatusCode, String)> {
+    let mut slot = String::from("gallery");
+    let mut caption = String::new();
+    let mut saved: Vec<String> = Vec::new();
+    while let Some(field) = multipart
+        .next_field()
+        .await
+        .map_err(|e| (StatusCode::BAD_REQUEST, e.to_string()))?
+    {
+        let f_name = field.name().unwrap_or("").to_string();
+        if f_name == "slot" {
+            if let Ok(t) = field.text().await {
+                let s: String = t.chars().filter(|c| c.is_ascii_alphanumeric() || *c == '-' || *c == '_').collect();
+                if !s.is_empty() {
+                    slot = s;
+                }
+            }
+            continue;
+        }
+        if f_name == "caption" {
+            if let Ok(t) = field.text().await {
+                caption = t;
+            }
+            continue;
+        }
+        if f_name != "photo" {
+            continue;
+        }
+        let orig = field.file_name().unwrap_or("upload").to_string();
+        let data = field.bytes().await.map_err(|e| (StatusCode::BAD_REQUEST, e.to_string()))?;
+        if data.len() > 10 * 1024 * 1024 {
+            return Err((StatusCode::PAYLOAD_TOO_LARGE, "File over 10 MB.".to_string()));
+        }
+        let ext = orig.rsplit('.').next().unwrap_or("jpg").to_lowercase();
+        if !["jpg", "jpeg", "png", "webp", "gif", "pdf"].contains(&ext.as_str()) {
+            return Err((StatusCode::UNSUPPORTED_MEDIA_TYPE, "Only jpg/png/webp/gif/pdf.".to_string()));
+        }
+        let mut base: String = orig
+            .chars()
+            .map(|c| if c.is_ascii_alphanumeric() { c } else if c == '.' { '.' } else { '_' })
+            .collect();
+        if base.len() > 80 {
+            base.truncate(80);
+        }
+        let stamp = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_secs())
+            .unwrap_or(0);
+        let fname = format!("{stamp}_{base}");
+        let mut dir = std::path::PathBuf::from(&state.db_path);
+        dir.pop();
+        dir.push("media");
+        std::fs::create_dir_all(&dir).map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+        std::fs::write(dir.join(&fname), &data).map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+        let conn = Connection::open(&state.db_path).map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+        conn.execute(
+            "INSERT INTO site_media (slot, file_name, mime, caption) VALUES (?1, ?2, ?3, ?4)",
+            params![slot, fname, ext, caption.clone()],
+        )
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+        saved.push(fname);
+    }
+    if saved.is_empty() {
+        return Err((StatusCode::BAD_REQUEST, "No file received.".to_string()));
+    }
+    Ok(shell(
+        "Uploaded",
+        format!("<p>Saved {} file(s): {}</p><p><a href=\"/photos\">View on Photos page</a></p>", saved.len(), esc(&saved.join(", "))),
+    ))
+}
+
+async fn media_file(State(state): State<Arc<AppState>>, Path(name): Path<String>) -> Result<impl IntoResponse, StatusCode> {
+    if name.is_empty() || name.len() > 128 || name.contains('/') || name.contains('\\') || name.contains("..") {
+        return Err(StatusCode::BAD_REQUEST);
+    }
+    let ext = name.rsplit('.').next().unwrap_or("").to_lowercase();
+    let ctype = match ext.as_str() {
+        "jpg" | "jpeg" => "image/jpeg",
+        "png" => "image/png",
+        "webp" => "image/webp",
+        "gif" => "image/gif",
+        "pdf" => "application/pdf",
+        _ => return Err(StatusCode::NOT_FOUND),
+    };
+    let mut dir = std::path::PathBuf::from(&state.db_path);
+    dir.pop();
+    dir.push("media");
+    let bytes = tokio::fs::read(dir.join(&name)).await.map_err(|_| StatusCode::NOT_FOUND)?;
+    Ok(([(header::CONTENT_TYPE, ctype)], bytes))
+}
+
 #[tokio::main]
 async fn main() {
     let mut db = DEFAULT_DB.to_string();
@@ -635,6 +789,9 @@ async fn main() {
         .route("/appointments/request", post(appointment_request))
         .route("/treatment", get(treatment))
         .route("/requests", get(requests))
+        .route("/photos", get(photos))
+        .route("/staff/media", get(media_upload_form).post(media_upload))
+        .route("/media/:file", get(media_file))
         .with_state(state);
     let addr: SocketAddr = format!("{bind}:{port}")
         .parse()

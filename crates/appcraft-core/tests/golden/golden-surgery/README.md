@@ -13,7 +13,8 @@ Without `--db` it opens `./golden-surgery.dbcraft` in the working directory.
 
 `cargo run --bin __PACKAGE__-portal -- --port 11540`
 then open http://127.0.0.1:11540 — home, new-patient onboarding,
-appointments, treatment plans (record number), staff inbox.
+appointments, treatment plans (record number), staff inbox, photos.
+Reception uploads room/shop/floorplan photos at /staff/media.
 Binds loopback only; no login in v1 — demo, not for real patient
 data over networks (see docs/LEGAL-SPIKE.md, network chapter).
 
