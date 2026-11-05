@@ -27,7 +27,7 @@ pub fn available_templates() -> Vec<TemplateManifest> {
     vec![
         TemplateManifest {
             id: "desktop_egui".to_string(),
-            name: "Sovereign Native Desktop (Rust + egui)".to_string(),
+            name: "Local Native Desktop (Rust + egui)".to_string(),
             stack: StackType::NativeDesktopEgui,
             description: "Zero-dependency 60fps native desktop application with embedded SQLite B-Tree engine.".to_string(),
             default_entrypoint: "src/main.rs".to_string(),
