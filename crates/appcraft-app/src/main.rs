@@ -249,7 +249,7 @@ impl eframe::App for AppCraftGui {
             ui.add_space(4.0);
 
             let nav_btn = |ui: &mut egui::Ui, active: bool, text: &str| -> bool {
-                let rich = egui::RichText::new(text).color(if active { emerald } else { Color32::WHITE });
+                let rich = egui::RichText::new(text).color(if active { emerald } else { ui.visuals().text_color() });
                 ui.selectable_label(active, rich).clicked()
             };
 
