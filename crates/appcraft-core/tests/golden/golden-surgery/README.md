@@ -9,6 +9,14 @@ cargo run -- [--db PATH]
 
 Without `--db` it opens `./golden-surgery.dbcraft` in the working directory.
 
+## Patient portal (LAN demo)
+
+`cargo run --bin __PACKAGE__-portal -- --port 11540`
+then open http://127.0.0.1:11540 — home, new-patient onboarding,
+appointments, treatment plans (record number), staff inbox.
+Binds loopback only; no login in v1 — demo, not for real patient
+data over networks (see docs/LEGAL-SPIKE.md, network chapter).
+
 ## Data + legal
 
 Personal data lives in `golden-surgery.dbcraft` (local SQLite, no network calls in

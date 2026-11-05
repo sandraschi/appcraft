@@ -3,7 +3,14 @@ name = "golden-surgery"
 version = "0.1.0"
 edition = "2021"
 
+[[bin]]
+name = "golden-surgery-portal"
+path = "portal/main.rs"
+
 [dependencies]
 eframe = "0.37"
 egui = "0.37"
 rusqlite = { version = "0.40", features = ["bundled"] }
+serde_json = "1"
+axum = "0.7"
+tokio = { version = "1", features = ["full"] }

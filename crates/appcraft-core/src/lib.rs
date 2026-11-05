@@ -127,6 +127,7 @@ pub async fn dispatch(cmd: Command, store: &DatabaseStore) -> Value {
                         &slug,
                         &db_file,
                         &constr.tables_created,
+                        appcraft_templates::DEFAULT_PORTAL_PORT,
                     );
                     let mut written = Vec::new();
                     for (rel, content) in &files {

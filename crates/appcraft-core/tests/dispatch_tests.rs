@@ -94,10 +94,10 @@ async fn test_appcraft_init_emits_desktop_egui_tree() -> Result<(), Box<dyn std:
     let files = init_res["emitted"]["files"]
         .as_array()
         .ok_or("missing emitted.files")?;
-    assert_eq!(files.len(), 4);
+    assert_eq!(files.len(), 7);
 
     // Byte-identical against the checked-in golden tree.
-    for rel in ["Cargo.toml", "src/main.rs", "README.md", ".gitignore"] {
+    for rel in ["Cargo.toml", "src/main.rs", "portal/main.rs", "README.md", ".gitignore", "start.ps1", "start.bat"] {
         let got = std::fs::read_to_string(dir.join(rel))?;
         let want = std::fs::read_to_string(format!("tests/golden/golden-surgery/{rel}"))?;
         assert_eq!(got, want, "mismatch in {rel}");
