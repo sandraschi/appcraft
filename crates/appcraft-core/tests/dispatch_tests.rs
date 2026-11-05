@@ -23,6 +23,7 @@ async fn test_appcraft_init_with_domain_blueprint_and_stigmergy() -> Result<(), 
             template_id: "desktop_egui".to_string(),
             blueprint_id: Some("surgery".to_string()),
             seed_data: Some(true),
+            out_dir: None,
         },
         &store,
     )
@@ -67,5 +68,43 @@ async fn test_appcraft_init_with_domain_blueprint_and_stigmergy() -> Result<(), 
     let updated_sum = dispatch(Command::StigmergySummary, &store).await;
     assert_eq!(updated_sum["ledger"]["completed"], 1);
 
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_appcraft_init_emits_desktop_egui_tree() -> Result<(), Box<dyn std::error::Error>> {
+    let dir = std::env::temp_dir().join(format!("appcraft-golden-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    let store = DatabaseStore::open_in_memory()?;
+
+    // Golden fixture: fixed name + surgery blueprint, no seed (deterministic).
+    let init_res = dispatch(
+        Command::InitApp {
+            name: "Golden Surgery".to_string(),
+            template_id: "desktop_egui".to_string(),
+            blueprint_id: Some("surgery".to_string()),
+            seed_data: Some(false),
+            out_dir: Some(dir.to_string_lossy().to_string()),
+        },
+        &store,
+    )
+    .await;
+
+    assert_eq!(init_res["success"], true);
+    let files = init_res["emitted"]["files"]
+        .as_array()
+        .ok_or("missing emitted.files")?;
+    assert_eq!(files.len(), 4);
+
+    // Byte-identical against the checked-in golden tree.
+    for rel in ["Cargo.toml", "src/main.rs", "README.md", ".gitignore"] {
+        let got = std::fs::read_to_string(dir.join(rel))?;
+        let want = std::fs::read_to_string(format!("tests/golden/golden-surgery/{rel}"))?;
+        assert_eq!(got, want, "mismatch in {rel}");
+    }
+    // The app database is emitted too (schema only, no seed here).
+    assert!(dir.join("golden-surgery.dbcraft").exists());
+
+    let _ = std::fs::remove_dir_all(&dir);
     Ok(())
 }

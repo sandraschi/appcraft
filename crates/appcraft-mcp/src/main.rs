@@ -45,6 +45,9 @@ enum Commands {
         blueprint: String,
         #[arg(long, default_value_t = true)]
         seed: bool,
+        /// Emit generated app files here (enables real builds later)
+        #[arg(long)]
+        out_dir: Option<String>,
     },
     /// Inspect or manage stigmergic task ledger
     Stigmergy {
@@ -55,11 +58,14 @@ enum Commands {
         #[arg(long)]
         agent_id: Option<String>,
     },
-    /// Compile application into local standalone executable
+    /// Compile a previously emitted application (real cargo build, no emulation)
     Compile {
         name: String,
         #[arg(long, default_value = "windows-x86_64")]
         target: String,
+        /// Directory the app was emitted to (must contain Cargo.toml)
+        #[arg(long)]
+        out_dir: Option<String>,
     },
 }
 
@@ -103,13 +109,14 @@ fn main() {
             let res = rt.block_on(dispatch(Command::ListBlueprints, &store));
             println!("{}", serde_json::to_string_pretty(&res["blueprints"]).unwrap_or_default());
         }
-        Some(Commands::Init { name, template, blueprint, seed }) => {
+        Some(Commands::Init { name, template, blueprint, seed, out_dir }) => {
             let res = rt.block_on(dispatch(
                 Command::InitApp {
                     name,
                     template_id: template,
                     blueprint_id: Some(blueprint),
                     seed_data: Some(seed),
+                    out_dir,
                 },
                 &store,
             ));
@@ -133,11 +140,12 @@ fn main() {
                 println!("{}", serde_json::to_string_pretty(&res["ledger"]).unwrap_or_default());
             }
         }
-        Some(Commands::Compile { name, target }) => {
+        Some(Commands::Compile { name, target, out_dir }) => {
             let res = rt.block_on(dispatch(
                 Command::CompileArtifact {
                     app_name: name,
                     target_platform: target,
+                    out_dir,
                 },
                 &store,
             ));
@@ -200,12 +208,26 @@ fn run_mcp_stdio(rt: &Runtime, store: &DatabaseStore) {
                                     "name": { "type": "string" },
                                     "template": { "type": "string" },
                                     "blueprint": { "type": "string" },
-                                    "seed": { "type": "boolean" }
+                                    "seed": { "type": "boolean" },
+                                    "out_dir": { "type": "string" }
                                 },
                                 "required": ["name"]
                             }
                         },
-                        { "name": "app_stigmergy_summary", "description": "Get summary of pending/claimed/completed stigmergic tasks", "inputSchema": { "type": "object", "properties": {} } }
+                        { "name": "app_stigmergy_summary", "description": "Get summary of pending/claimed/completed stigmergic tasks", "inputSchema": { "type": "object", "properties": {} } },
+                        {
+                            "name": "app_compile",
+                            "description": "Real cargo build of a previously emitted app (out_dir must contain Cargo.toml) — never emulated",
+                            "inputSchema": {
+                                "type": "object",
+                                "properties": {
+                                    "name": { "type": "string" },
+                                    "target": { "type": "string" },
+                                    "out_dir": { "type": "string" }
+                                },
+                                "required": ["name", "out_dir"]
+                            }
+                        }
                     ]
                 }
             }),
@@ -223,7 +245,14 @@ fn run_mcp_stdio(rt: &Runtime, store: &DatabaseStore) {
                         let template = args["template"].as_str().unwrap_or("desktop_egui").to_string();
                         let blueprint = args["blueprint"].as_str().map(|s| s.to_string());
                         let seed = args["seed"].as_bool();
-                        rt.block_on(dispatch(Command::InitApp { name, template_id: template, blueprint_id: blueprint, seed_data: seed }, store))
+                        let out_dir = args["out_dir"].as_str().map(|s| s.to_string());
+                        rt.block_on(dispatch(Command::InitApp { name, template_id: template, blueprint_id: blueprint, seed_data: seed, out_dir }, store))
+                    }
+                    "app_compile" => {
+                        let name = args["name"].as_str().unwrap_or("App").to_string();
+                        let target = args["target"].as_str().unwrap_or("windows-x86_64").to_string();
+                        let out_dir = args["out_dir"].as_str().map(|s| s.to_string());
+                        rt.block_on(dispatch(Command::CompileArtifact { app_name: name, target_platform: target, out_dir }, store))
                     }
                     "app_stigmergy_summary" => rt.block_on(dispatch(Command::StigmergySummary, store)),
                     unknown => json!({ "success": false, "error": format!("Unknown tool '{unknown}'") })

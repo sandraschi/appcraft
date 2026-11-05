@@ -32,6 +32,7 @@ pub enum Command {
         template_id: String,
         blueprint_id: Option<String>,
         seed_data: Option<bool>,
+        out_dir: Option<String>,
     },
     StigmergyEmit {
         task_type: String,
@@ -50,6 +51,7 @@ pub enum Command {
     CompileArtifact {
         app_name: String,
         target_platform: String,
+        out_dir: Option<String>,
     },
 }
 
@@ -84,6 +86,7 @@ pub async fn dispatch(cmd: Command, store: &DatabaseStore) -> Value {
             template_id,
             blueprint_id,
             seed_data,
+            out_dir,
         } => {
             let bp_name = blueprint_id.unwrap_or_else(|| "small_business".to_string());
             let seed = seed_data.unwrap_or(true);
@@ -93,10 +96,61 @@ pub async fn dispatch(cmd: Command, store: &DatabaseStore) -> Value {
                 return json!({ "success": false, "error": e.to_string() });
             }
 
-            // Construct domain database schema
-            let constr = match construct_blueprint(store, &bp_name, seed, true) {
-                Ok(c) => c,
-                Err(e) => return json!({ "success": false, "error": e.to_string() }),
+            // File-backed generation: the schema is constructed into the
+            // app's own .dbcraft file so the emitted app is self-contained.
+            // In-memory (default): construct into the caller's store, no files.
+            let (constr, emitted) = match out_dir {
+                Some(dir) => {
+                    if template_id != "desktop_egui" {
+                        return json!({ "success": false, "error": format!("template bodies not yet implemented for '{template_id}' (only desktop_egui emits files)") });
+                    }
+                    let slug = appcraft_templates::slugify(&name);
+                    let db_file = format!("{slug}.dbcraft");
+                    if let Err(e) = std::fs::create_dir_all(&dir) {
+                        return json!({ "success": false, "error": e.to_string() });
+                    }
+                    let db_path = std::path::PathBuf::from(&dir).join(&db_file);
+                    let db_str = match db_path.to_str() {
+                        Some(s) => s.to_string(),
+                        None => return json!({ "success": false, "error": "out_dir is not valid UTF-8" }),
+                    };
+                    let file_store = match DatabaseStore::open(&db_str) {
+                        Ok(s) => s,
+                        Err(e) => return json!({ "success": false, "error": e.to_string() }),
+                    };
+                    let constr = match construct_blueprint(&file_store, &bp_name, seed, true) {
+                        Ok(c) => c,
+                        Err(e) => return json!({ "success": false, "error": e.to_string() }),
+                    };
+                    let files = appcraft_templates::render_desktop_egui(
+                        &name,
+                        &slug,
+                        &db_file,
+                        &constr.tables_created,
+                    );
+                    let mut written = Vec::new();
+                    for (rel, content) in &files {
+                        let dest = std::path::PathBuf::from(&dir).join(rel);
+                        if let Some(parent) = dest.parent() {
+                            if let Err(e) = std::fs::create_dir_all(parent) {
+                                return json!({ "success": false, "error": e.to_string() });
+                            }
+                        }
+                        if let Err(e) = std::fs::write(&dest, content) {
+                            return json!({ "success": false, "error": e.to_string() });
+                        }
+                        written.push(rel.clone());
+                    }
+                    let emitted = json!({ "dir": dir, "db_file": db_file, "files": written });
+                    (constr, Some(emitted))
+                }
+                None => {
+                    let constr = match construct_blueprint(store, &bp_name, seed, true) {
+                        Ok(c) => c,
+                        Err(e) => return json!({ "success": false, "error": e.to_string() }),
+                    };
+                    (constr, None)
+                }
             };
 
             // Emit initial stigmergic tasks for each constructed table
@@ -117,7 +171,7 @@ pub async fn dispatch(cmd: Command, store: &DatabaseStore) -> Value {
                 emitted_count += 2;
             }
 
-            json!({
+            let mut res = json!({
                 "success": true,
                 "app_name": name,
                 "template": template_id,
@@ -126,7 +180,11 @@ pub async fn dispatch(cmd: Command, store: &DatabaseStore) -> Value {
                 "sample_records_seeded": constr.sample_records_seeded,
                 "stigmergic_tasks_emitted": emitted_count,
                 "status": "INITIALIZED"
-            })
+            });
+            if let Some(e) = emitted {
+                res["emitted"] = e;
+            }
+            res
         }
         Command::StigmergyEmit {
             task_type,
@@ -162,19 +220,47 @@ pub async fn dispatch(cmd: Command, store: &DatabaseStore) -> Value {
         }
         Command::CompileArtifact {
             app_name,
-            target_platform,
+            target_platform: _,
+            out_dir,
         } => {
-            // Emulate single-binary compilation and bundle verification
-            json!({
-                "success": true,
-                "app_name": app_name,
-                "target_platform": target_platform,
-                "artifact_type": "standalone_executable",
-                "bundle_size_kb": 14350,
-                "embedded_storage": "sqlite_btree",
-                "zero_runtime_cloud_tax": true,
-                "status": "COMPILED"
-            })
+            let dir = match out_dir {
+                Some(d) => d,
+                None => return json!({ "success": false, "error": "refusing emulated build: init with --out-dir first (or pass out_dir) — no fake COMPILED receipts" }),
+            };
+            let manifest = std::path::PathBuf::from(&dir).join("Cargo.toml");
+            let manifest_str = match manifest.to_str() {
+                Some(s) => s.to_string(),
+                None => return json!({ "success": false, "error": "out_dir is not valid UTF-8" }),
+            };
+            let started = std::time::Instant::now();
+            let build = tokio::process::Command::new("cargo")
+                .arg("build")
+                .arg("--manifest-path")
+                .arg(&manifest_str)
+                .output();
+            match tokio::time::timeout(std::time::Duration::from_secs(1200), build).await {
+                Err(_) => json!({ "success": false, "app_name": app_name, "timeout_secs": 1200, "status": "BUILD_TIMEOUT" }),
+                Ok(Err(e)) => json!({ "success": false, "app_name": app_name, "error": e.to_string(), "status": "BUILD_SPAWN_FAILED" }),
+                Ok(Ok(out)) => {
+                    let ok = out.status.success();
+                    let tail = |b: &[u8]| -> String {
+                        let s = String::from_utf8_lossy(b);
+                        let chars: Vec<char> = s.chars().collect();
+                        let n = chars.len();
+                        let start = n.saturating_sub(2000);
+                        chars[start..].iter().collect()
+                    };
+                    json!({
+                        "success": ok,
+                        "app_name": app_name,
+                        "exit_code": out.status.code(),
+                        "elapsed_secs": started.elapsed().as_secs(),
+                        "stdout_tail": tail(&out.stdout),
+                        "stderr_tail": tail(&out.stderr),
+                        "status": if ok { "COMPILED" } else { "BUILD_FAILED" }
+                    })
+                }
+            }
         }
     }
 }

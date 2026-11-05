@@ -34,6 +34,7 @@ pub struct AppCraftGui {
     pub init_result: Option<Value>,
     pub stigmergy_summary: Option<Value>,
     pub compilation_result: Option<Value>,
+    pub last_emit_dir: Option<String>,
     pub status_message: String,
     pub locale: appcraft_core::i18n::AppLocale,
     pub is_dark_theme: bool,
@@ -57,6 +58,7 @@ impl AppCraftGui {
             init_result: None,
             stigmergy_summary: None,
             compilation_result: None,
+            last_emit_dir: None,
             status_message: format!("AppCraft v{APP_VERSION} Studio [Ready on Port {CONTROL_PORT}]"),
             locale: appcraft_core::i18n::AppLocale::default(),
             is_dark_theme: true,
@@ -80,6 +82,7 @@ impl AppCraftGui {
         let tmpl = self.selected_template.clone();
         let bp = self.selected_blueprint.clone();
         let seed = self.seed_sample_data;
+        let out_dir = format!("{}-generated", appcraft_templates::slugify(&name));
 
         let res = self.runtime.block_on(dispatch(
             Command::InitApp {
@@ -87,26 +90,36 @@ impl AppCraftGui {
                 template_id: tmpl,
                 blueprint_id: Some(bp.clone()),
                 seed_data: Some(seed),
+                out_dir: Some(out_dir.clone()),
             },
             &self.store,
         ));
 
         self.init_result = Some(res.clone());
+        self.last_emit_dir = Some(out_dir);
         self.refresh_stigmergy();
         self.status_message = format!("Application '{name}' initialized with '{bp}' blueprint!");
     }
 
     pub fn compile_application(&mut self) {
         let name = self.app_name.clone();
+        let out = self.last_emit_dir.clone();
         let res = self.runtime.block_on(dispatch(
             Command::CompileArtifact {
                 app_name: name.clone(),
                 target_platform: "windows-x86_64".to_string(),
+                out_dir: out,
             },
             &self.store,
         ));
+        let ok = res.get("success").and_then(|v| v.as_bool()).unwrap_or(false);
+        let secs = res.get("elapsed_secs").and_then(|v| v.as_u64()).unwrap_or(0);
         self.compilation_result = Some(res);
-        self.status_message = format!("Compiled sovereign standalone .exe for '{name}' (Zero-Runtime-Tax)");
+        self.status_message = if ok {
+            format!("Built '{name}' in {secs}s — run it from the emitted dir.")
+        } else {
+            format!("Build failed for '{name}' — see compilation result, no fake COMPILED.")
+        };
     }
 }
 
