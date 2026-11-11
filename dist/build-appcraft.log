@@ -1,0 +1,7 @@
+== appcraft 0.1.0 ==
+building...
+second exe: D:\Dev\repos\appcraft\target\release\appcraft-cli.exe
+wrote D:\Dev\repos\appcraft\dist\appcraft-0.1.0-windows-x64-portable.zip
+sha256 88efa7e0636e924d93ff2489089ab0eac3d01f7af53d2e1106e574200efcabdf
+dry-run: publish with -Publish, or manually:
+gh release create v0.1.0 dist/appcraft-0.1.0-windows-x64-portable.zip dist/SHA256SUMS.txt --repo sandraschi/appcraft --title "appcraft 0.1.0 (alpha)" --prerelease

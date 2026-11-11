@@ -1,0 +1,1 @@
+88efa7e0636e924d93ff2489089ab0eac3d01f7af53d2e1106e574200efcabdf  appcraft-0.1.0-windows-x64-portable.zip
