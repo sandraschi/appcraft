@@ -30,6 +30,20 @@ agent-to-agent calls.
   (`appcraft-cli`). Stdout is pure JSON-RPC; logs go to stderr.
 - L3 `appcraft-app`: native immediate-mode Studio IDE (`appcraft` binary).
 
+### 3.1 UI/UX Architecture & Menu Bar Standard
+In accordance with [`CRAFT_MENU_BAR_STANDARD.md`](../../mcp-central-docs/standards/rust-artcraft/CRAFT_MENU_BAR_STANDARD.md):
+- **Pattern 2 (Viewport-Centric Craft Workstation):** Persistent factory canvas/blueprint editor surrounded by dockable inspectors, with top quick button row mapped as accelerators into `View` toggles. New generator views or template panels are registered as visibility toggles under `View` / `Window` and in the toolbox, wired to `Command::dispatch`.
+- **Top Menu Bar Hierarchy:**
+  - `File`: New Blueprint (`Ctrl+N`), Open Blueprint (`Ctrl+O`), Save (`Ctrl+S`), Export Scaffolding (`Ctrl+E`), Quit (`Ctrl+Q`).
+  - `Edit`: Undo (`Ctrl+Z`), Redo (`Ctrl+Y`), Cut, Copy, Paste, Preferences (`Ctrl+,`).
+  - `View`: Blueprint Canvas, Stigmergy Ledger Dock, Generated Code Preview, Theme (`Dark`/`Light`).
+  - `Insert`: Add Table, Add Relation, Add Template Manifest, Add Ledger Task.
+  - `Modify`: Mutate Schema, Reorder Fields, Refactor Blueprint.
+  - `Commands`: Synthesize Artifacts, Run Code Generator, Verify Manifests, Clean Output.
+  - `Window`: Reset Layout, Blueprint Viewport, Output Console, Stigmergy Inspector.
+  - `Help`: Command Palette (`Ctrl+K`), Keyboard Shortcuts (`F1`), Project Files & Docs, Licenses & Notices, About AppCraft.
+- **Behavioral Mechanics:** Smooth `switch_on_hover` between top-level menus, zero-unsafe immediate-mode rendering, and headless `--smoke` parity.
+
 ## 4. Does today / next week / non-goals
 
 **Does today:** 4-crate workspace, dispatch wired to DatabaseCraft blueprints;
