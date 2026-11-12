@@ -1,0 +1,57 @@
+{
+  "manifest_version": "0.2",
+  "name": "appcraft",
+  "display_name": "AppCraft",
+  "version": "__VERSION__",
+  "description": "AppCraft MCP server (6 tools).",
+  "author": {
+    "name": "Sandra Schipal",
+    "url": "https://github.com/sandraschi"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/sandraschi/appcraft"
+  },
+  "license": "MIT",
+  "server": {
+    "type": "binary",
+    "entry_point": "appcraft-cli.exe",
+    "mcp_config": {
+      "command": "${__dirname}/appcraft-cli.exe",
+      "args": [
+        "--mcp"
+      ]
+    }
+  },
+  "compatibility": {
+    "platforms": [
+      "win32"
+    ]
+  },
+  "tools": [
+    {
+      "name": "app_status",
+      "description": "Check AppCraft engine status"
+    },
+    {
+      "name": "app_list_templates",
+      "description": "List architecture templates"
+    },
+    {
+      "name": "app_list_blueprints",
+      "description": "List turnkey domain database blueprints"
+    },
+    {
+      "name": "app_init",
+      "description": "Initialize a new local application workspace with blueprints and stigmergic tasks"
+    },
+    {
+      "name": "app_stigmergy_summary",
+      "description": "Get summary of pending/claimed/completed stigmergic tasks"
+    },
+    {
+      "name": "app_compile",
+      "description": "Real cargo build of a previously emitted app (out_dir must contain Cargo.toml)  -  never emulated"
+    }
+  ]
+}

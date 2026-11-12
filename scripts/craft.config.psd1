@@ -11,8 +11,8 @@
     CliPackage  = 'appcraft-mcp'
     CliBin      = 'appcraft-cli'
     CliSmoke    = @('status')
-    McpArgs     = @()
-    McpSmoke    = @()
+    McpArgs     = @('--mcp')
+    McpSmoke    = @('--mcp')
     Installer   = $true
-    Mcpb        = $false
+    Mcpb        = $true
 }
