@@ -1,5 +1,10 @@
 # AppCraft
 
+![License: MIT OR Apache-2.0](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue.svg)
+![Rust 1.90+](https://img.shields.io/badge/rust-1.90%2B-orange?logo=rust)
+![MCP stdio](https://img.shields.io/badge/MCP-stdio-purple)
+![ArtCraft harness](https://img.shields.io/badge/ArtCraft-harness-green)
+
 **AppCraft** is the autonomous stigmergic application factory for the sandraschi fleet. It synthesizes local-first, zero-runtime-tax native desktop and web applications from structured domain blueprints (powered by **DatabaseCraft**).
 
 ## Key Architecture
