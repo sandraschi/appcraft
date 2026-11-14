@@ -123,12 +123,41 @@ impl AppCraftGui {
     }
 }
 
+fn harsh_visuals() -> egui::Visuals {
+    let mut visuals = egui::Visuals::dark();
+    let ink = egui::Color32::from_rgb(242, 246, 252);
+    visuals.override_text_color = Some(ink);
+    visuals.weak_text_color = Some(egui::Color32::from_rgb(203, 213, 225));
+    visuals.widgets.noninteractive.fg_stroke = egui::Stroke::new(1.0, ink);
+    visuals.widgets.inactive.fg_stroke = egui::Stroke::new(1.0, ink);
+    visuals.widgets.hovered.fg_stroke = egui::Stroke::new(1.5, egui::Color32::WHITE);
+    visuals.widgets.active.fg_stroke = egui::Stroke::new(1.5, egui::Color32::WHITE);
+    visuals
+}
+
+fn crisp_light_visuals() -> egui::Visuals {
+    let mut visuals = egui::Visuals::light();
+    let ink = egui::Color32::BLACK;
+    visuals.override_text_color = Some(ink);
+    visuals.weak_text_color = Some(ink);
+    visuals.panel_fill = egui::Color32::WHITE;
+    visuals.window_fill = egui::Color32::WHITE;
+    visuals.extreme_bg_color = egui::Color32::WHITE;
+    visuals.faint_bg_color = egui::Color32::WHITE;
+    visuals.widgets.noninteractive.fg_stroke = egui::Stroke::new(1.0, ink);
+    visuals.widgets.inactive.fg_stroke = egui::Stroke::new(1.0, ink);
+    visuals.widgets.hovered.fg_stroke = egui::Stroke::new(1.5, ink);
+    visuals.widgets.active.fg_stroke = egui::Stroke::new(1.5, ink);
+    visuals.widgets.open.fg_stroke = egui::Stroke::new(1.0, ink);
+    visuals
+}
+
 impl eframe::App for AppCraftGui {
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         if self.is_dark_theme {
-            ui.ctx().set_visuals(egui::Visuals::dark());
+            ui.ctx().set_visuals(harsh_visuals());
         } else {
-            ui.ctx().set_visuals(egui::Visuals::light());
+            ui.ctx().set_visuals(crisp_light_visuals());
         }
 
         let emerald = Color32::from_rgb(16, 185, 129);
