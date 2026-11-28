@@ -9,13 +9,13 @@
 
 ## Install
 
-Tell Cursor, Claude, Antigravity, or OpenCode: **Install this.**
+Tell Claude, Cursor, Antigravity, or OpenCode: **Install appcraft from github sandraschi.**
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts\install-craft.ps1
 ```
 
-Installs the Windows app, the CLI, and the MCP bundle.
+Installs the Windows app and the CLI (Start Menu shortcut, CLI on the user PATH). `-RegisterClients` also registers the MCP exe with the IDEs that are installed. `-Clients cursor,claude-desktop` limits that list. `-Mcpb` installs the Claude Desktop extension bundle.
 
 ## Key Architecture
 - **Stigmergic Coordination**: Decentralized environment-mediated task routing (`_stigmergy_ledger`).
